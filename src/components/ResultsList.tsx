@@ -48,7 +48,7 @@ export default function ResultsList({
     ));
 
     // Clicking a rating can blur the note input first. Save in that order
-    // so a note request cannot restore a note after Clear.
+    // so a note request cannot restore a note after Reset.
     const request: Promise<void> = previous.then(async () => {
       let error: string | null = null;
       try {
@@ -127,6 +127,7 @@ function ResultRow({
 }) {
   const id = useId();
   const [noteOpen, setNoteOpen] = useState(Boolean(item.note));
+  const [resetHintDismissed, setResetHintDismissed] = useState(false);
 
   const stateLine = item.saving
     ? "Saving…"
@@ -157,16 +158,31 @@ function ResultRow({
         >
           Not relevant
         </button>
-        <button
-          type="button"
-          className="rating-button"
-          aria-pressed={item.relevant === null}
-          onClick={() => onJudge(item, null)}
-          disabled={item.saving === "rating"}
-          title="Clear the rating and note"
+        <span
+          className="reset-control"
+          data-tooltip-dismissed={resetHintDismissed || undefined}
+          onPointerEnter={() => setResetHintDismissed(false)}
         >
-          Clear
-        </button>
+          <button
+            type="button"
+            className="rating-button"
+            aria-describedby={`${id}-reset-tooltip`}
+            onFocus={() => setResetHintDismissed(false)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setResetHintDismissed(true);
+            }}
+            onClick={() => {
+              setResetHintDismissed(true);
+              onJudge(item, null);
+            }}
+            disabled={item.saving === "rating"}
+          >
+            Reset
+          </button>
+          <span className="reset-tooltip" id={`${id}-reset-tooltip`} role="tooltip">
+            Clears the rating and note.
+          </span>
+        </span>
         <span
           className={`rating-state ${item.saveError ? "error" : ""}`}
           aria-live="polite"

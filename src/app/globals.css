@@ -309,6 +309,30 @@ button:enabled:active { transform: translateY(1px); }
   color: var(--accent);
 }
 
+.reset-control { position: relative; }
+
+.reset-tooltip {
+  position: absolute;
+  inset-block-end: 100%;
+  inset-inline-end: 0;
+  z-index: 1;
+  visibility: hidden;
+  white-space: nowrap;
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.8rem;
+}
+
+.reset-control:not([data-tooltip-dismissed]) .rating-button:focus-visible + .reset-tooltip {
+  visibility: visible;
+}
+
+@media (hover: hover) {
+  .reset-control:not([data-tooltip-dismissed]):hover .reset-tooltip { visibility: visible; }
+}
+
 .result-note {
   margin-top: 0.75rem;
 }
