@@ -50,8 +50,8 @@ export default function SearchForm({
           className="text-input"
           type="search"
           aria-invalid={clientError ? true : undefined}
-          aria-describedby={clientError ? `${formId}-err` : undefined}
-          placeholder="e.g. Ligand effects"
+          aria-describedby={clientError ? `${formId}-err ${formId}-example` : `${formId}-example`}
+          placeholder="Enter a full question"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           disabled={submitting}
@@ -88,6 +88,10 @@ export default function SearchForm({
         </p>
       )}
 
+      <p className="hint" id={`${formId}-example`}>
+        For example, “What explanations have been proposed for the photo-induced
+        absorption bands observed in different quantum dot materials?”
+      </p>
       <p className="hint">
         You’ll see 5 to 10 shuffled passages. Rate each one against your query.
       </p>
