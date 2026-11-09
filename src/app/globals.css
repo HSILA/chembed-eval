@@ -1,5 +1,5 @@
 /* Hallmark · shape: app screen · genre: modern-minimal · built: ChEmbed · redesign: polish · v2.0.0 */
-/* Hallmark · critique: History metadata crowded the query on phones; give the query its own line. */
+/* Hallmark · critique: Keep history columns aligned across queries of different lengths. */
 :root {
   --paper: #faf8f3;
   --surface: #ffffff;
@@ -323,11 +323,12 @@ button:enabled:active { transform: translateY(1px); }
 
 /* ---------- history ---------- */
 
+.history-list { container: history / inline-size; }
+
 .history-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.3rem;
   padding: 0.75rem;
   border-bottom: 1px solid var(--rule);
   cursor: pointer;
@@ -354,11 +355,20 @@ button:enabled:active { transform: translateY(1px); }
 }
 
 .history-meta {
-  display: flex;
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
   gap: 0.75rem;
-  flex-wrap: wrap;
   font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
   color: var(--muted);
+}
+
+@container history (min-width: 36rem) {
+  .history-item {
+    grid-template-columns: minmax(0, 1fr) 17rem;
+    align-items: baseline;
+    gap: 1rem;
+  }
 }
 
 /* ---------- sign in ---------- */
@@ -439,12 +449,6 @@ button:enabled:active { transform: translateY(1px); }
   .user-line { display: none; }
 
   .main { padding: 1.5rem 1.25rem 3rem; }
-
-  .history-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.3rem;
-  }
 }
 
 @media (pointer: coarse) {
