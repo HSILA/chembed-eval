@@ -3,52 +3,24 @@ import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { jsonError, requireUser, toErrorResponse } from "@/lib/server/api";
-import { createSearch, getSearchDetail, listSearches, type CreateSearchClaim } from "@/lib/server/db";
+import { parseHistoryPaging } from "@/lib/history-pagination";
+import { createSearch, listSearches, type CreateSearchClaim } from "@/lib/server/db";
 import { settingsSnapshot } from "@/lib/server/search-config";
 import { runSearchPipeline } from "@/lib/server/pipeline";
-import type {
-  CreateSearchResponse,
-  ListSearchesResponse,
-  SearchDetailResponse,
-} from "@/lib/contract";
+import type { CreateSearchResponse } from "@/lib/contract";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_QUERY_LEN = 500;
 const MAX_NEED_LEN = 500;
 
-/** Rated-count/result-count rollups for a user's searches. */
-async function summaryRows(userId: string) {
-  const rows = await listSearches(userId);
-  return Promise.all(
-    rows.map(async (row) => {
-      const detail = await getSearchDetail(userId, row.id);
-      const ratedCount = detail
-        ? detail.results.filter((r) => r.relevant !== null).length
-        : 0;
-      const resultCount = detail ? detail.results.length : 0;
-      return { row, ratedCount, resultCount };
-    }),
-  );
-}
-
-/** GET /api/searches — the user's searches, newest first. */
-export async function GET() {
+/** GET /api/searches — one page of the user's searches, newest first. */
+export async function GET(request: NextRequest) {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;
+  const params = request.nextUrl.searchParams;
+  const { page, pageSize } = parseHistoryPaging(params.get("page"), params.get("pageSize"));
   try {
-    const summaries = await summaryRows(auth.user.id);
-    const body: ListSearchesResponse = {
-      searches: summaries.map(({ row, ratedCount, resultCount }) => ({
-        id: row.id,
-        query: row.query,
-        informationNeed: row.information_need,
-        createdAt: row.created_at,
-        status: row.status,
-        ratedCount,
-        resultCount,
-      })),
-    };
-    return NextResponse.json(body);
+    return NextResponse.json(await listSearches(auth.user.id, page, pageSize));
   } catch (err) {
     return toErrorResponse(err);
   }

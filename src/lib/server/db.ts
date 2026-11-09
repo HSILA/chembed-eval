@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { HistoryPageSize, ListSearchesResponse } from "@/lib/contract";
 import { secretClient } from "./auth";
 
 /** Row of public.searches. */
@@ -40,15 +41,51 @@ function assertOwner(userId: string, row: { user_id?: string } | null) {
 
 export class MissingError extends Error {}
 
-/** All searches for a user, newest first. */
-export async function listSearches(userId: string): Promise<SearchRow[]> {
-  const { data, error } = await db()
+type HistoryRow = Pick<SearchRow, "id" | "query" | "information_need" | "created_at" | "status"> & {
+  results: { ratings: Pick<RatingRow, "relevant"> | null }[];
+};
+
+/** One page of the user's searches, without loading passage text or private ranks. */
+export async function listSearches(
+  userId: string,
+  requestedPage: number,
+  pageSize: HistoryPageSize,
+): Promise<ListSearchesResponse> {
+  const client = db();
+  const { count, error: countError } = await client
     .from("searches")
-    .select("*")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (countError) throw countError;
+
+  const total = count ?? 0;
+  const page = Math.min(requestedPage, Math.max(1, Math.ceil(total / pageSize)));
+  if (total === 0) return { searches: [], page, pageSize, total };
+
+  const start = (page - 1) * pageSize;
+  const { data, error } = await client
+    .from("searches")
+    .select("id, query, information_need, created_at, status, results(ratings(relevant))")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(start, start + pageSize - 1);
+  if (error?.code === "PGRST103" && page > 1) return listSearches(userId, 1, pageSize);
   if (error) throw error;
-  return data as SearchRow[];
+
+  const searches = ((data ?? []) as unknown as HistoryRow[]).map((row) => {
+    const results = row.status === "ready" ? row.results : [];
+    return {
+      id: row.id,
+      query: row.query,
+      informationNeed: row.information_need,
+      createdAt: row.created_at,
+      status: row.status,
+      ratedCount: results.filter((result) => result.ratings?.relevant != null).length,
+      resultCount: results.length,
+    };
+  });
+  return { searches, page, pageSize, total };
 }
 
 /** Idempotent create: caller-generated UUID reserved exactly once. */
@@ -250,17 +287,6 @@ export async function getSearchDetail(userId: string, searchId: string): Promise
       };
     }),
   };
-}
-
-/** A user-facing search summary with rated/total counts. */
-export async function getSearchSummary(
-  userId: string,
-  searchId: string,
-): Promise<SearchRow & { ratedCount: number; resultCount: number } | null> {
-  const detail = await getSearchDetail(userId, searchId);
-  if (!detail) return null;
-  const rated = detail.results.filter((r) => r.relevant !== null).length;
-  return { ...detail.search, ratedCount: rated, resultCount: detail.results.length };
 }
 
 /**

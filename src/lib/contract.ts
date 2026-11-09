@@ -14,7 +14,14 @@ export type SearchSummary = {
   resultCount: number;
 };
 
-export type ListSearchesResponse = { searches: SearchSummary[] };
+export type HistoryPageSize = 10 | 20;
+
+export type ListSearchesResponse = {
+  searches: SearchSummary[];
+  page: number;
+  pageSize: HistoryPageSize;
+  total: number;
+};
 
 export type CreateSearchRequest = {
   id: string;

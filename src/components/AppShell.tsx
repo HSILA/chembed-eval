@@ -16,7 +16,7 @@ export default function AppShell({
   const [signingOut, setSigningOut] = useState(false);
 
   const isSearch = pathname === "/";
-  const isHistory = pathname === "/history";
+  const isHistory = pathname === "/history" || pathname.startsWith("/history/");
 
   async function signOut() {
     if (signingOut) return;
