@@ -1,0 +1,30 @@
+[project]
+name = "chembed-eval-backend"
+version = "0.1.0"
+description = "Embedding backend for the chembed-eval human evaluation: Modal GPU inference + Pinecone upsert"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch==2.9.0",
+    "transformers==4.57.6",
+    "sentence-transformers==5.2.0",
+    "mteb==2.7.12",
+    "einops>=0.8.0",
+    "numpy<2.0.0",
+    "huggingface-hub>=0.34.0,<1.0",
+    "python-dotenv>=1.2.1",
+    "pydantic>=2.0.0",
+    "pyarrow==23.0.0",
+    "modal>=1.6.0,<2",
+    "pinecone>=7.0.0,<8",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

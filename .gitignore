@@ -1,0 +1,35 @@
+# Local credentials
+.env
+.env.*
+!.env.example
+.modal.toml
+
+# Web app
+node_modules/
+.next/
+.vercel/
+out/
+*.tsbuildinfo
+
+# Python and local artifacts
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+data/
+artifacts/
+models/
+embeddings/
+exports/
+
+# Local files
+/plan.md
+/PLAN.md
+/IMPLEMENTATION_STATUS.md
+/SANITY_STATUS.md
+.DS_Store
+*.log
+
+# Supabase local project link
+supabase/.temp/
