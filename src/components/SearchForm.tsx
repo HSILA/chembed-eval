@@ -4,6 +4,9 @@ import { useEffect, useId, useRef, useState } from "react";
 
 type Submit = (query: string) => void | Promise<void>;
 
+const exampleQuery =
+  "What explanations have been proposed for the photo-induced absorption bands observed in different quantum dot materials?";
+
 export default function SearchForm({
   onSubmit,
   submitting,
@@ -45,15 +48,21 @@ export default function SearchForm({
         Chemistry query
       </label>
       <div className="query-box">
-        <input
+        <textarea
           id={`${formId}-query`}
           className="text-input"
-          type="search"
+          rows={2}
           aria-invalid={clientError ? true : undefined}
           aria-describedby={clientError ? `${formId}-err ${formId}-example` : `${formId}-example`}
-          placeholder="Enter a full question"
+          placeholder={exampleQuery}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
           disabled={submitting}
           maxLength={2000}
         />
@@ -88,9 +97,8 @@ export default function SearchForm({
         </p>
       )}
 
-      <p className="hint" id={`${formId}-example`}>
-        For example, “What explanations have been proposed for the photo-induced
-        absorption bands observed in different quantum dot materials?”
+      <p className="hint query-example" id={`${formId}-example`}>
+        For example, “{exampleQuery}”
       </p>
       <p className="hint">
         You’ll see 5 to 10 shuffled passages. Rate each one against your query.
