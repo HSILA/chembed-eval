@@ -22,6 +22,7 @@ export const PROMPT_QUERY = "search_query: "; // trailing space matters
 export const MAX_SEQ_LENGTH = 8192;
 export const EMBED_DIM = 768;
 export const TOP_K = 5; // hits per model
+export const RRF_K = 60;
 export const PROTOCOL_ID = "db72fa244e2915b2";
 export const PINECONE_NAMESPACE = PROTOCOL_ID;
 
@@ -47,6 +48,13 @@ export function settingsSnapshot() {
     normalize: true,
     dtype: "float32",
     top_k: TOP_K,
+    display_order: {
+      method: "reciprocal_rank_fusion",
+      rrf_k: RRF_K,
+      inputs: ["base.rank", "prog.rank"],
+      absent_rank_contributes: 0,
+      tie_break: "shuffle input once, then stable sort by fused score",
+    },
     pinecone_namespace: PINECONE_NAMESPACE,
     protocol_id: PROTOCOL_ID,
   };

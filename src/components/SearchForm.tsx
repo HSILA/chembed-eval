@@ -101,7 +101,7 @@ export default function SearchForm({
         For example, “{exampleQuery}”
       </p>
       <p className="hint">
-        You’ll see 5 to 10 shuffled passages. Rate each one against your query.
+        You’ll see 5 to 10 passages. Rate each one against your query.
       </p>
     </form>
   );

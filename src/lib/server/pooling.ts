@@ -1,4 +1,5 @@
-import { TOP_K, type ModelKey } from "./search-config";
+import { MODEL_KEYS, RRF_K, TOP_K, type ModelKey } from "./search-config";
+export { RRF_K } from "./search-config";
 import type { PineconeHit } from "./pinecone";
 
 export type PooledPassage = {
@@ -49,7 +50,7 @@ export function poolHits(
   return { ok: true, pool: [...byId.values()] };
 }
 
-/** Fisher–Yates shuffle with an injectable RNG for deterministic tests. */
+/** Fisher–Yates shuffle with an injectable RNG; used for the RRF tie break. */
 export function shuffle<T>(items: T[], rng: () => number = Math.random): T[] {
   const out = [...items];
   for (let i = out.length - 1; i > 0; i--) {
@@ -60,15 +61,50 @@ export function shuffle<T>(items: T[], rng: () => number = Math.random): T[] {
 }
 
 /**
- * Assign display positions 1..N to the shuffled pool. Callers persist
- * display_position alongside the private rank/score pairs; only the text at
- * each position is ever shown.
+ * Reciprocal rank fusion across the base and PROG original ranks. A model that
+ * did not retrieve the passage contributes 0. This is a display-level fusion
+ * of the two existing ranking lists only — not a BM25 or score hybrid, and it
+ * does not change how either model is queried or scored.
  */
-export function assignDisplayPositions<T extends { originalPassageId: string }>(
+export function rrfScore(
+  rankFor: Partial<Record<ModelKey, number>>,
+  k: number = RRF_K,
+): number {
+  let score = 0;
+  for (const modelKey of MODEL_KEYS) {
+    const rank = rankFor[modelKey];
+    if (rank !== undefined) score += 1 / (k + rank);
+  }
+  return score;
+}
+
+/**
+ * Display order: deduplicated pool sorted by RRF score, descending. Exact ties
+ * keep the order of the pool after one input shuffle, so the tie break is
+ * reproducible with an injectable rng. Stable sort preserves that shuffle for
+ * equal scores.
+ */
+export function rankByRrf<
+  P extends { originalPassageId: string; rankFor?: Partial<Record<ModelKey, number>> },
+>(pool: P[], rng: () => number = Math.random): P[] {
+  return shuffle(pool, rng).sort(
+    (a, b) => rrfScore(b.rankFor ?? {}) - rrfScore(a.rankFor ?? {}),
+  );
+}
+
+/**
+ * Assign display positions 1..N in combined-ranking (RRF) order. Callers persist
+ * display_position alongside the private rank/score pairs; only the text at
+ * each position is ever shown. Historical searches are never re-ranked; the
+ * persisted order is written once at creation.
+ */
+export function assignDisplayPositions<
+  T extends { originalPassageId: string; rankFor?: Partial<Record<ModelKey, number>> },
+>(
   pool: T[],
   rng: () => number = Math.random,
 ): Map<string, number> {
   const positions = new Map<string, number>();
-  shuffle(pool, rng).forEach((p, i) => positions.set(p.originalPassageId, i + 1));
+  rankByRrf(pool, rng).forEach((p, i) => positions.set(p.originalPassageId, i + 1));
   return positions;
 }
