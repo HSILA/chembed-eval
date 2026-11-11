@@ -15,8 +15,8 @@ npm run dev
 Open http://localhost:3000 and sign in with an account created in Supabase Auth.
 Use **Search** to rate passages and **History** to reopen a search and continue.
 The server calls both private Modal models, retrieves five passages per model
-from Pinecone, and saves one deduplicated list ordered by reciprocal rank fusion of
-the two models' original ranks, with the model details kept private.
+from Pinecone, and saves one deduplicated list ordered by each passage's earliest
+original rank. Ties are random, and the model details stay private.
 
 Run `npm test`, `npm run typecheck`, and `npm run build` to check changes.
 For Vercel, use the same project settings. Store the Supabase secret key,

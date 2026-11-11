@@ -20,7 +20,7 @@ export type PoolingResult =
 export function poolHits(
   hits: Record<ModelKey, PineconeHit[] | undefined>,
 ): PoolingResult {
-  for (const modelKey of Object.keys(hits) as ModelKey[]) {
+  for (const modelKey of MODEL_KEYS) {
     const list = hits[modelKey];
     if (!list || list.length !== TOP_K) {
       return {
@@ -30,7 +30,7 @@ export function poolHits(
     }
   }
   const byId = new Map<string, PooledPassage>();
-  for (const modelKey of Object.keys(hits) as ModelKey[]) {
+  for (const modelKey of MODEL_KEYS) {
     const seen = new Set<string>();
     for (const hit of hits[modelKey]!) {
       if (seen.has(hit.originalPassageId)) {
@@ -50,7 +50,7 @@ export function poolHits(
   return { ok: true, pool: [...byId.values()] };
 }
 
-/** Fisher–Yates shuffle with an injectable RNG; used for the RRF tie break. */
+/** Fisher–Yates shuffle with an injectable RNG for saved tie breaking. */
 export function shuffle<T>(items: T[], rng: () => number = Math.random): T[] {
   const out = [...items];
   for (let i = out.length - 1; i > 0; i--) {
@@ -92,19 +92,44 @@ export function rankByRrf<
   );
 }
 
-/**
- * Assign display positions 1..N in combined-ranking (RRF) order. Callers persist
- * display_position alongside the private rank/score pairs; only the text at
- * each position is ever shown. Historical searches are never re-ranked; the
- * persisted order is written once at creation.
- */
+export type DisplayOrderMethod = "first_encounter" | "reciprocal_rank_fusion" | "shuffle";
+
+/** Respect the recorded method when an older, unfinished search is retried. */
+export function displayOrderMethod(settings: Record<string, unknown>): DisplayOrderMethod {
+  const order = settings.display_order;
+  if (order && typeof order === "object" && "method" in order) {
+    if (order.method === "first_encounter" || order.method === "reciprocal_rank_fusion") {
+      return order.method;
+    }
+  }
+  return "shuffle";
+}
+
+/** A shared passage appears at its earliest original rank, with random ties. */
+export function rankByFirstEncounter<
+  T extends { originalPassageId: string; rankFor?: Partial<Record<ModelKey, number>> },
+>(pool: T[], rng: () => number = Math.random): T[] {
+  const firstRank = (passage: T) => Math.min(
+    passage.rankFor?.base ?? Infinity,
+    passage.rankFor?.prog ?? Infinity,
+  );
+  return shuffle(pool, rng).sort((a, b) => firstRank(a) - firstRank(b));
+}
+
+/** Persist one display order. Saved result positions are read back unchanged. */
 export function assignDisplayPositions<
   T extends { originalPassageId: string; rankFor?: Partial<Record<ModelKey, number>> },
 >(
   pool: T[],
   rng: () => number = Math.random,
+  method: DisplayOrderMethod = "first_encounter",
 ): Map<string, number> {
   const positions = new Map<string, number>();
-  rankByRrf(pool, rng).forEach((p, i) => positions.set(p.originalPassageId, i + 1));
+  const ordered = method === "first_encounter"
+    ? rankByFirstEncounter(pool, rng)
+    : method === "reciprocal_rank_fusion"
+      ? rankByRrf(pool, rng)
+      : shuffle(pool, rng);
+  ordered.forEach((p, i) => positions.set(p.originalPassageId, i + 1));
   return positions;
 }

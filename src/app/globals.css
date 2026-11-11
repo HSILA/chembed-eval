@@ -309,15 +309,19 @@ button:enabled:active { transform: translateY(1px); }
   color: var(--accent);
 }
 
-.reset-control { position: relative; }
+.reset-control { position: relative; display: inline-flex; }
 
 .reset-tooltip {
   position: absolute;
-  inset-block-end: 100%;
-  inset-inline-end: 0;
+  inset-block-start: calc(100% + 6px);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
   z-index: 1;
   visibility: hidden;
+  pointer-events: none;
+  inline-size: max-content;
   white-space: nowrap;
+  text-align: center;
   padding: 0.3rem 0.55rem;
   border-radius: var(--radius);
   background: var(--ink);
@@ -331,6 +335,10 @@ button:enabled:active { transform: translateY(1px); }
 
 @media (hover: hover) {
   .reset-control:not([data-tooltip-dismissed]):hover .reset-tooltip { visibility: visible; }
+}
+
+@media (max-width: 480px) {
+  .reset-tooltip { max-inline-size: 7rem; white-space: normal; }
 }
 
 .result-note {

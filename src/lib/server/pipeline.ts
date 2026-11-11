@@ -1,6 +1,6 @@
 import "server-only";
 
-import { poolHits, assignDisplayPositions } from "./pooling";
+import { poolHits, assignDisplayPositions, displayOrderMethod } from "./pooling";
 import { encodeQueryBoth } from "./modal-encode";
 import { queryAllIndexes } from "./pinecone";
 import { hasSavedResults, saveResults, setSearchStatus, setSearchStatusIfStatus, type SearchRow } from "./db";
@@ -32,7 +32,7 @@ export async function runSearchPipeline(
     const hits = await queryAllIndexes(vectors);
     const pooled = poolHits(hits);
     if (!pooled.ok) throw new Error(pooled.reason);
-    const positions = assignDisplayPositions(pooled.pool);
+    const positions = assignDisplayPositions(pooled.pool, Math.random, displayOrderMethod(search.settings));
     const pool = pooled.pool.map((p) => ({
       originalPassageId: p.originalPassageId,
       rankFor: p.rankFor,

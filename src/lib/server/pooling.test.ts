@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assignDisplayPositions, poolHits, rrfScore, rankByRrf, shuffle } from "@/lib/server/pooling";
+import { assignDisplayPositions, poolHits, rrfScore, rankByRrf, rankByFirstEncounter, displayOrderMethod, shuffle } from "@/lib/server/pooling";
 import type { PineconeHit } from "@/lib/server/pinecone";
 import { settingsSnapshot, RRF_K } from "@/lib/server/search-config";
 
@@ -65,10 +65,9 @@ describe("rankByRrf", () => {
   it("sorts by summed reciprocal-rank contribution with k=60, absent rank contributing 0", () => {
     expect(RRF_K).toBe(60);
     expect(settingsSnapshot().display_order).toMatchObject({
-      method: "reciprocal_rank_fusion",
-      rrf_k: 60,
-      inputs: ["base.rank", "prog.rank"],
-      tie_break: "shuffle input once, then stable sort by fused score",
+      method: "first_encounter",
+      primary: "minimum_original_rank",
+      tie_break: "random within each rank, saved once",
     });
     const p1 = { originalPassageId: "both", rankFor: { base: 1, prog: 5 } };
     const p2 = { originalPassageId: "base-only", rankFor: { base: 4 } };
@@ -108,5 +107,54 @@ describe("rankByRrf", () => {
     const positions = assignDisplayPositions(deduped.pool, () => 0.1);
     expect(positions.size).toBe(8); // deduped size, not 10
     expect(new Set(positions.values())).toEqual(new Set(Array.from({ length: 8 }, (_, i) => i + 1)));
+  });
+});
+
+
+describe("first encounter display order", () => {
+  it("shows a rank-3/rank-5 shared passage in the rank-3 group only once", () => {
+    const merged = poolHits({
+      base: [hit("a"), hit("b"), hit("shared"), hit("d"), hit("e")],
+      prog: [hit("f"), hit("g"), hit("h"), hit("i"), hit("shared")],
+    });
+    if (!merged.ok) throw new Error(merged.reason);
+    const before = JSON.stringify(merged.pool);
+    for (const rng of [() => 0, () => 0.99]) {
+      const ordered = rankByFirstEncounter(merged.pool, rng);
+      const ids = ordered.map(p => p.originalPassageId);
+      expect(ids).toHaveLength(9);
+      expect(ids.filter(id => id === "shared")).toHaveLength(1);
+      expect(new Set(ids.slice(0, 2))).toEqual(new Set(["a", "f"]));
+      expect(new Set(ids.slice(2, 4))).toEqual(new Set(["b", "g"]));
+      expect(new Set(ids.slice(4, 6))).toEqual(new Set(["shared", "h"]));
+      expect(new Set(ids.slice(6, 8))).toEqual(new Set(["d", "i"]));
+      expect(ids[8]).toBe("e");
+    }
+    expect(JSON.stringify(merged.pool)).toBe(before);
+    expect(merged.pool.find(p => p.originalPassageId === "shared")?.rankFor).toEqual({ base: 3, prog: 5 });
+  });
+
+  it("breaks equal-rank ties randomly without boosting later shared passages", () => {
+    const pool = [
+      { originalPassageId: "base-first", rankFor: { base: 1 } },
+      { originalPassageId: "prog-first", rankFor: { prog: 1 } },
+      { originalPassageId: "shared-last", rankFor: { base: 5, prog: 5 } },
+    ];
+    const a = rankByFirstEncounter(pool, () => 0).map(p => p.originalPassageId);
+    const b = rankByFirstEncounter(pool, () => 0.99).map(p => p.originalPassageId);
+    expect(a).toEqual(["prog-first", "base-first", "shared-last"]);
+    expect(b).toEqual(["base-first", "prog-first", "shared-last"]);
+    expect([...assignDisplayPositions(pool, () => 0).keys()]).toEqual(a);
+  });
+
+  it("uses the saved method for unfinished searches created before this change", () => {
+    expect(displayOrderMethod(settingsSnapshot())).toBe("first_encounter");
+    expect(displayOrderMethod({ display_order: { method: "reciprocal_rank_fusion" } })).toBe("reciprocal_rank_fusion");
+    expect(displayOrderMethod({})).toBe("shuffle");
+    const pool = [
+      { originalPassageId: "single", rankFor: { base: 1 } },
+      { originalPassageId: "shared", rankFor: { base: 5, prog: 5 } },
+    ];
+    expect([...assignDisplayPositions(pool, () => 0, "reciprocal_rank_fusion").keys()]).toEqual(["shared", "single"]);
   });
 });
