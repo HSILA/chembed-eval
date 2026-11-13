@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { HistoryPageSize, ListSearchesResponse } from "@/lib/contract";
 import { historyQuery } from "@/lib/history-pagination";
+import { mayBeInterrupted } from "@/lib/search-status";
 
 export default function HistoryWorkspace({
   page,
@@ -109,7 +110,7 @@ export default function HistoryWorkspace({
                     <span>
                       {s.status === "ready"
                         ? `${s.ratedCount} of ${s.resultCount} rated`
-                        : s.status === "failed" ? "Search failed" : "Searching…"}
+                        : s.status === "failed" ? "Search failed" : mayBeInterrupted(s.status, s.createdAt) ? "Search may have stopped" : "Searching…"}
                     </span>
                     <time dateTime={s.createdAt}>
                       {new Date(s.createdAt).toLocaleString(undefined, {
